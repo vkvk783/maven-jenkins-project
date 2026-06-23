@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Historical Weather Data</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #e0f7fa, #80deea);
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #333;
+            font-weight: bold;
+            animation: fadeInDown 1.2s ease-out;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .chart-container {
+            background-color: #ffffff;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            margin-bottom: 40px;
+            transition: transform 0.3s ease;
+        }
+
+        .chart-container:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        label, button {
+            font-size: 18px;
+            margin: 10px 0;
+            animation: fadeInUp 1s ease-out;
+        }
+
+        input[type="date"] {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        canvas {
+            max-width: 600px;
+            width: 100%;
+            height: 300px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.3s;
+        }
+
+        canvas:hover {
+            box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Historical Weather Data</h1>
+
+    <!-- City selection -->
+    <label for="citySelect">Select a City:</label>
+    <select id="citySelect">
+        <option value="Delhi">Delhi</option>
+        <option value="Mumbai">Mumbai</option>
+        <option value="Chennai">Chennai</option>
+        <option value="Bangalore">Bangalore</option>
+        <option value="Kolkata">Kolkata</option>
+        <option value="Hyderabad">Hyderabad</option>
+    </select>
+
+    <!-- Date picker input -->
+    <label for="datePicker">Select a Date:</label>
+    <input type="date" id="datePicker">
+
+    <button id="fetchHistoryData">Fetch Data</button>
+
+    <!-- Temperature Chart -->
+    <h2>Temperature Overview</h2>
+    <div class="chart-container">
+        <canvas id="temperatureChart"></canvas>
+    </div>
+
+    <!-- Humidity Chart -->
+    <h2>Humidity Overview</h2>
+    <div class="chart-container">
+        <canvas id="humidityChart"></canvas>
+    </div>
+
+    <!-- Weather Condition -->
+    <h2>Weather Condition Overview</h2>
+    <div class="chart-container">
+        <canvas id="conditionChart"></canvas>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const citySelect = document.getElementById('citySelect');
+        const dateInput = document.getElementById('datePicker');
+        const tempChartCanvas = document.getElementById('temperatureChart').getContext('2d');
+        const humidityChartCanvas = document.getElementById('humidityChart').getContext('2d');
+        const conditionChartCanvas = document.getElementById('conditionChart').getContext('2d');
+
+        let tempChart, humidityChart, conditionChart;
+
+        document.getElementById('fetchHistoryData').addEventListener('click', function () {
+            const selectedCity = citySelect.value;
+            const selectedDate = dateInput.value;
+            if (selectedCity && selectedDate) {
+                fetchHistoryData(selectedCity, selectedDate);
+            } else {
+                alert("Please select both a city and a date.");
+            }
+        });
+
+        function fetchHistoryData(city, date) {
+            fetch(`/weather/historyData?city=${city}&date=${date}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("Network response was not ok");
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data || data.length === 0) {
+                        alert("No data found for the selected city and date.");
+                        return;
+                    }
+
+                    const temperatures = data.map(item => item.temperature);
+                    const humidities = data.map(item => item.humidity);
+                    const conditions = data.map(item => item.mainCondition);
+                    const timestamps = data.map(item => new Date(item.updateTime).toLocaleDateString());
+
+                    updateTemperatureChart(timestamps, temperatures);
+                    updateHumidityChart(timestamps, humidities);
+                    updateConditionChart(conditions);
+                })
+                .catch(error => {
+                    console.error("Error fetching historical data:", error);
+                    alert("Error fetching data.");
+                });
+        }
+
+        function updateTemperatureChart(labels, temperatures) {
+            if (tempChart) {
+                tempChart.destroy();
+            }
+
+            tempChart = new Chart(tempChartCanvas, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: temperatures,
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Temperature (°C)'
+                            }
+                        }
+
+                    }
+                }
+            });
+        }
+
+        function updateHumidityChart(labels, humidities) {
+            if (humidityChart) {
+                humidityChart.destroy();
+            }
+
+            humidityChart = new Chart(humidityChartCanvas, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Humidity (%)',
+                        data: humidities,
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        fill: false
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Humidity (%)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateConditionChart(conditions) {
+            if (conditionChart) {
+                conditionChart.destroy();  // Ensure the previous chart is destroyed
+            }
+
+            // Check if conditions are being passed correctly
+            console.log("Conditions for pie chart:", conditions);
+
+            // Count occurrences of each weather condition
+            const conditionData = {};
+            conditions.forEach(condition => {
+                conditionData[condition] = (conditionData[condition] || 0) + 1;
+            });
+
+            // Calculate total conditions and percentage for each condition
+            const totalConditions = conditions.length;
+            if (totalConditions === 0) {
+                console.warn("No weather conditions available for pie chart.");
+                return;  // Exit early if no conditions are available
+            }
+
+            const conditionLabels = Object.keys(conditionData);
+            const conditionValues = Object.values(conditionData).map(value => ((value / totalConditions) * 100).toFixed(2)); // Calculate percentages
+
+            // Create the pie chart with percentages
+            conditionChart = new Chart(conditionChartCanvas, {
+                type: 'pie',
+                data: {
+                    labels: conditionLabels,
+                    datasets: [{
+                        label: 'Weather Conditions (%)',
+                        data: conditionValues,  // Use percentages
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.2)',
+                            'rgba(54, 162, 235, 0.2)',
+                            'rgba(255, 206, 86, 0.2)',
+                            'rgba(75, 192, 192, 0.2)',
+                            'rgba(153, 102, 255, 0.2)',
+                            'rgba(255, 159, 64, 0.2)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)',
+                            'rgba(255, 159, 64, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Weather Conditions Overview'
+                        }
+                    }
+                }
+            });
+        }
+
+    });
+</script>
+</body>
+</html>

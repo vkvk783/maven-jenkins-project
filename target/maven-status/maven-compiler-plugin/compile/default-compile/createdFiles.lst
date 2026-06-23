@@ -1,0 +1,16 @@
+com\weather\monitoring\controller\WeatherSummaryController.class
+com\weather\monitoring\model\DailySummary.class
+com\weather\monitoring\repository\DailySummaryRepository.class
+com\weather\monitoring\config\AppConfig.class
+com\weather\monitoring\service\ForecastService.class
+com\weather\monitoring\controller\DashboardController.class
+com\weather\monitoring\WeatherMonitoringSystemApplication.class
+com\weather\monitoring\service\DailySummaryServiceImpl.class
+com\weather\monitoring\service\DailySummaryService.class
+com\weather\monitoring\service\WeatherDataServiceImpl.class
+com\weather\monitoring\service\EmailService.class
+com\weather\monitoring\repository\WeatherDataRepository.class
+com\weather\monitoring\model\WeatherData.class
+com\weather\monitoring\repository\ForecastRepository.class
+com\weather\monitoring\service\WeatherDataService.class
+com\weather\monitoring\model\Forecast.class

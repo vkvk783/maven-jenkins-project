@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Daily Summary of Weather</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #e0f7fa, #80deea);
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #333;
+            font-weight: bold;
+            animation: fadeInDown 1.2s ease-out;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .chart-container {
+            background-color: #ffffff;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            margin-bottom: 40px;
+            transition: transform 0.3s ease;
+        }
+
+        .chart-container:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        label, button {
+            font-size: 18px;
+            margin: 10px 0;
+            animation: fadeInUp 1s ease-out;
+        }
+
+        input[type="date"] {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        canvas {
+            max-width: 600px;
+            width: 100%;
+            height: 300px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.3s;
+        }
+
+        canvas:hover {
+            box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Daily Summary Dashboard</h1>
+
+    <!-- Date picker input -->
+    <label for="datePicker">Select a Date:</label>
+    <input type="date" id="datePicker" class="form-control w-50">
+    <button id="fetchSummary" class="btn btn-primary mt-3">Fetch Data</button>
+
+    <!-- Temperature Chart -->
+    <div class="chart-container mt-4">
+        <h2>Temperature Overview</h2>
+        <canvas id="temperatureChart"></canvas>
+    </div>
+
+    <!-- Humidity Chart -->
+    <div class="chart-container">
+        <h2>Humidity Overview</h2>
+        <canvas id="humidityChart"></canvas>
+    </div>
+
+    <!-- Wind Speed Chart -->
+    <div class="chart-container">
+        <h2>Wind Speed Overview</h2>
+        <canvas id="windChart"></canvas>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const dateInput = document.getElementById('datePicker');
+        const tempChartCanvas = document.getElementById('temperatureChart').getContext('2d');
+        const humidityChartCanvas = document.getElementById('humidityChart').getContext('2d');
+        const windChartCanvas = document.getElementById('windChart').getContext('2d');
+
+        let temperatureChartInstance = null;
+        let humidityChartInstance = null;
+        let windChartInstance = null;
+
+        document.getElementById('fetchSummary').addEventListener('click', function () {
+            const selectedDate = dateInput.value;
+            if (selectedDate) {
+                fetchWeatherSummary(selectedDate);
+            } else {
+                alert("Please select a date.");
+            }
+        });
+
+        function fetchWeatherSummary(date) {
+            fetch(`/weather/dailySummary?date=${date}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data || data.length === 0) {
+                        alert("No data available for the selected date.");
+                        return;
+                    }
+
+                    const cities = data.map(item => item.city);
+                    const avgTemps = data.map(item => item.averageTemp);
+                    const maxTemps = data.map(item => item.maxTemp);
+                    const minTemps = data.map(item => item.minTemp);
+                    const humidities = data.map(item => item.averageHumidity);
+                    const maxWindSpeeds = data.map(item => item.maxWindSpeed);
+                    const minWindSpeeds = data.map(item => item.minWindSpeed);
+
+                    updateTemperatureChart(cities, avgTemps, maxTemps, minTemps);
+                    updateHumidityChart(cities, humidities);
+                    updateWindChart(cities, maxWindSpeeds, minWindSpeeds);
+                })
+                .catch(error => {
+                    console.error("Error fetching daily summary:", error);
+                    alert("Error fetching data.");
+                });
+        }
+
+        function updateTemperatureChart(cities, avgTemps, maxTemps, minTemps) {
+            // Destroy the previous chart instance if it exists
+            if (temperatureChartInstance) {
+                temperatureChartInstance.destroy();
+            }
+
+            temperatureChartInstance = new Chart(tempChartCanvas, {
+                type: 'bar',
+                data: {
+                    labels: cities,
+                    datasets: [
+                        {
+                            label: 'Max Temperature',
+                            data: maxTemps,
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Min Temperature',
+                            data: minTemps,
+                            type: 'line',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            fill: false
+                        },
+                        {
+                            label: 'Avg Temperature',
+                            data: avgTemps,
+                            type: 'line',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Temperature (°C)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Cities'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateHumidityChart(cities, humidities) {
+            // Destroy the previous chart instance if it exists
+            if (humidityChartInstance) {
+                humidityChartInstance.destroy();
+            }
+
+            humidityChartInstance = new Chart(humidityChartCanvas, {
+                type: 'line',
+                data: {
+                    labels: cities,
+                    datasets: [{
+                        label: 'Average Humidity',
+                        data: humidities,
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        fill: false,
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Humidity (%)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Cities'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateWindChart(cities, maxWindSpeeds, minWindSpeeds) {
+            // Destroy the previous chart instance if it exists
+            if (windChartInstance) {
+                windChartInstance.destroy();
+            }
+
+            windChartInstance = new Chart(windChartCanvas, {
+                type: 'radar',
+                data: {
+                    labels: cities,
+                    datasets: [
+                        {
+                            label: 'Max Wind Speed',
+                            data: maxWindSpeeds,
+                            borderColor: 'rgba(255, 206, 86, 1)',
+                            fill: true,
+                        },
+                        {
+                            label: 'Min Wind Speed',
+                            data: minWindSpeeds,
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            fill: true,
+                        }
+                    ]
+                },
+                options: {
+                    scales: {
+                        r: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+</body>
+</html>
